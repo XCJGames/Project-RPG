@@ -12,6 +12,10 @@ namespace RPG.Control
     {
         [SerializeField] float chaseDistance = 5f;
         [SerializeField] float suspicionTime = 3f;
+        [SerializeField] float dwellingTime = 2f;
+        [SerializeField] PatrolPath patrolPath;
+        [SerializeField] float waypointTolerance = 1f;
+        [SerializeField] float positionOffset = 10f;
 
         GameObject player = null;
         Fighter fighter;
@@ -21,6 +25,10 @@ namespace RPG.Control
         bool isDead = false;
         Vector3 guardPosition;
         float timeSinceLastChase = Mathf.Infinity;
+        float timeSinceWaypointReached = 0;
+        int currentWaypoint = 0;
+        float[] rotateIntervals = { 0.33f, 0.66f };
+        int currentRotate = 0;
 
         private void Start()
         {
@@ -47,7 +55,7 @@ namespace RPG.Control
                     }
                     else
                     {
-                        GuardBehaviour();
+                        PatrolBehaviour();
                     }
                 }    
             }
@@ -65,9 +73,69 @@ namespace RPG.Control
             return player.GetComponent<Health>().IsDead();
         }
 
-        private void GuardBehaviour()
+        private void PatrolBehaviour()
         {
-            mover.StartMoveAction(guardPosition);
+            Vector3 nextPosition = guardPosition;
+
+            if(patrolPath != null)
+            {
+                if (AtWaypoint())
+                {
+                    if (timeSinceWaypointReached > dwellingTime)
+                    {
+                        CycleWaypoint();
+                        timeSinceWaypointReached = 0;
+                        currentRotate = 0;
+                    }
+                    timeSinceWaypointReached += Time.deltaTime;
+                    RotateRandomly();
+                }
+                nextPosition = GetCurrentWaypoint();
+            }
+
+            mover.StartMoveAction(nextPosition);
+        }
+
+        private void RotateRandomly()
+        {
+            for (int i = 0; i < rotateIntervals.Length && currentRotate < rotateIntervals.Length; i++)
+            {
+                if (i == currentRotate &&
+                    timeSinceWaypointReached >= dwellingTime * rotateIntervals[i])
+                {
+                    currentRotate++;
+                    Vector3 randomPosition = GetRandomPosition();
+                    Debug.Log("randomPosition: " + randomPosition);
+                    transform.LookAt(randomPosition);
+                    return;
+                }
+                else if (i > currentRotate) return;
+            }
+        }
+
+        private Vector3 GetRandomPosition()
+        {
+            float x = UnityEngine.Random.Range(transform.position.x - positionOffset,
+                transform.position.x + positionOffset);
+            float z = UnityEngine.Random.Range(transform.position.z - positionOffset,
+                transform.position.z + positionOffset);
+            return new Vector3(x, transform.position.y, z);
+        }
+
+        private bool AtWaypoint()
+        {
+            float distanceToWaypoint = Vector3.Distance(transform.position, GetCurrentWaypoint());
+            return distanceToWaypoint <= waypointTolerance;
+        }
+
+        private void CycleWaypoint()
+        {
+            currentWaypoint = patrolPath.GetNextIndex(currentWaypoint);
+        }
+
+        private Vector3 GetCurrentWaypoint()
+        {
+            return patrolPath.GetWaypoint(currentWaypoint);
         }
 
         private void CombatBehaviour()

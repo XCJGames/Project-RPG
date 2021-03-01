@@ -32,7 +32,7 @@ namespace RPG.Control
                 hit.transform.gameObject.TryGetComponent(out CombatTarget ct);
                 if (ct != null && !ct.GetComponent<Health>().IsDead())
                 {
-                    if (Input.GetMouseButtonDown(1))
+                    if (Input.GetMouseButton(1))
                     {
                         GetComponent<Fighter>().Attack(ct.gameObject);
                     }
